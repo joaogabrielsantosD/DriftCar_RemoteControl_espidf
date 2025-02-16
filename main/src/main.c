@@ -27,6 +27,8 @@ void app_main(void);
 static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status);
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len);
 void espnow_test(void *arg);
+void potenciometer_test(void *arg);
+void SOC_test(void *arg);
 
 void app_main(void)
 {
@@ -63,12 +65,64 @@ void app_main(void)
 
     if (gpio_config(&LED) == ESP_OK) printf("DEU BOM\r\n");
 
-    xTaskCreatePinnedToCore(&espnow_test, "wifi", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(&potenciometer_test, "pot", 4096, NULL, 5, NULL, 0);
+    //xTaskCreatePinnedToCore(&SOC_test, "soc", 4096, NULL, 5, NULL, 0);
+    //xTaskCreatePinnedToCore(&espnow_test, "wifi", 4096, NULL, 5, NULL, 1);
 
     while (1)
     {
         gpio_set_level(GPIO_NUM_2, gpio_get_level(GPIO_NUM_2) ^ 1);
         vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+/* Core 0 */
+void potenciometer_test(void *arg)
+{
+    adc1_config_width(SOC_WIDTH);
+    adc1_config_channel_atten(MOTOR_DC_SPEED_ADC_CHANNEL, SOC_ATTENUATION);
+    adc1_config_channel_atten(STEERING_WHELL_ADC_CHANNEL, SOC_ATTENUATION);
+    //adc_set_data_inv(ADC_UNIT_1, true);
+
+    while (true)
+    {
+        printf("Read Steering wheel potenciometer: %d\r\n", adc1_get_raw(STEERING_WHELL_ADC_CHANNEL));
+        printf("Read DC Motor Speed potenciometer: %d\r\n", adc1_get_raw(MOTOR_DC_SPEED_ADC_CHANNEL));
+        println();
+        
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+void SOC_test(void *arg)
+{
+    const int SAMPLES = 50;
+    const float CALIBRATION_FACTOR = 1.068;
+
+    adc1_config_width(SOC_WIDTH);
+    adc1_config_channel_atten(SOC_ADC_CHANNEL, SOC_ATTENUATION);
+    //adc_set_data_inv(ADC_UNIT_1, true);
+
+    int val = 0;
+
+    while (true)
+    {
+        for (int i = 0; i < SAMPLES; i++)
+            val += adc1_get_raw(SOC_ADC_CHANNEL);
+        val /= SAMPLES;
+        
+        uint16_t v = val;
+        //uint16_t v = (uint16_t)~adc1_get_raw(SOC_ADC_CHANNEL) & 0b0000111111111111;
+        //uint16_t v = (uint16_t)adc1_get_raw(SOC_ADC_CHANNEL);
+        float vol = ((v * 9) / 4095.0) * CALIBRATION_FACTOR;
+        uint8_t por = (int)((vol * 100) / 9);
+
+        printf("Read: %d\r\n", v);
+        printf("Volt: %.2f\r\n", vol);
+        printf("Porc: %d\r\n", por);
+        println();
+        
+        vTaskDelay(pdMS_TO_TICKS(750));
     }
 }
 

@@ -15,8 +15,8 @@
 #define SDA_LCD_PIN GPIO_NUM_21
 
 /* Potenciometer (Analog) Read commands */
-#define ANALOG_STEERINGWHELL_PIN GPIO_NUM_33
-#define ANALOG_MOTOR_SPEED_PIN   GPIO_NUM_32
+#define ANALOG_STEERING_WHELL_PIN GPIO_NUM_33
+#define ANALOG_MOTOR_SPEED_PIN    GPIO_NUM_32
 
 /* Push Button (Digital) Read commands */
 #define LEFT_COMMAND_PIN      GPIO_NUM_4
