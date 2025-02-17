@@ -24,6 +24,8 @@
 #include "ssd1306.h"
 #include "font8x8_basic.h" 
 
+#define DEBOUNCE_TIME_MS 200 // ms
+
 /* ADC channel */
 #define MOTOR_DC_SPEED_ADC_CHANNEL ADC1_CHANNEL_4
 #define STEERING_WHELL_ADC_CHANNEL ADC1_CHANNEL_5

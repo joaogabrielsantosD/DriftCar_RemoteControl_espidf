@@ -21,12 +21,18 @@
 static const char *TAG = "DriftCar_RemoteController";
 static const char *VERSION = "0.0.0";
 static uint8_t broadcast_mac[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+volatile uint64_t last_time = 0;
+QueueHandle_t isr_queue;
 
 void app_main(void);
+/* ISRs */
+void IRAM_ATTR botao_isr_handler(void *arg);
 /* Callbacks */
 static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status);
 static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len);
 void espnow_test(void *arg);
+void lcd_test(void *arg);
+void button_test(void *arg);
 void potenciometer_test(void *arg);
 void SOC_test(void *arg);
 
@@ -65,7 +71,9 @@ void app_main(void)
 
     if (gpio_config(&LED) == ESP_OK) printf("DEU BOM\r\n");
 
-    xTaskCreatePinnedToCore(&potenciometer_test, "pot", 4096, NULL, 5, NULL, 0);
+    //xTaskCreatePinnedToCore(&lcd_test, "lcd", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(&button_test, "button", 4096, NULL, 5, NULL, 0);
+    //xTaskCreatePinnedToCore(&potenciometer_test, "pot", 4096, NULL, 5, NULL, 0);
     //xTaskCreatePinnedToCore(&SOC_test, "soc", 4096, NULL, 5, NULL, 0);
     //xTaskCreatePinnedToCore(&espnow_test, "wifi", 4096, NULL, 5, NULL, 1);
 
@@ -77,6 +85,54 @@ void app_main(void)
 }
 
 /* Core 0 */
+void lcd_test(void *arg)
+{
+    while (true)
+    {
+        delay(1);
+    }
+}
+
+void button_test(void *arg)
+{
+    gpio_config_t lcd_button = {
+        .pin_bit_mask = BIT(LEFT_COMMAND_PIN) | BIT(RIGHT_COMMAND_PIN) | BIT(CONFIRM_COMMAND_PIN),
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+
+    gpio_config_t headlight_button = {
+        .pin_bit_mask = BIT(HEADLIGHT_COMMAND_PIN),
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_NEGEDGE,
+    };
+
+    ESP_ERROR_CHECK(gpio_config(&lcd_button));
+    ESP_ERROR_CHECK(gpio_config(&headlight_button));
+
+    isr_queue = xQueueCreate(10, sizeof(int));
+
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(HEADLIGHT_COMMAND_PIN, &botao_isr_handler, NULL));
+
+    int isr_state;
+    while (true)
+    {
+        if (xQueueReceive(isr_queue, &isr_state, pdMS_TO_TICKS(1)) == pdTRUE)
+            printf("ISR HEADLIGHT BUTTON TRIGGERED [%lld]\r\n", (int64_t)(esp_timer_get_time() / 1000)); 
+
+        printf("[%d] - [%d] - [%d] -------- [%d]\r\n",                                                                \
+            gpio_get_level(LEFT_COMMAND_PIN), gpio_get_level(CONFIRM_COMMAND_PIN), gpio_get_level(RIGHT_COMMAND_PIN), \
+            gpio_get_level(HEADLIGHT_COMMAND_PIN));
+        println();
+        delay(500);
+    }
+}
+
 void potenciometer_test(void *arg)
 {
     adc1_config_width(SOC_WIDTH);
@@ -123,6 +179,18 @@ void SOC_test(void *arg)
         println();
         
         vTaskDelay(pdMS_TO_TICKS(750));
+    }
+}
+
+void IRAM_ATTR botao_isr_handler(void *arg)
+{
+    uint64_t current_time = esp_timer_get_time() / 1000;
+    
+    if (current_time - last_time > DEBOUNCE_TIME_MS)
+    {
+        int state = LOW;
+        xQueueSendFromISR(isr_queue, &state, NULL);
+        last_time = current_time;
     }
 }
 
