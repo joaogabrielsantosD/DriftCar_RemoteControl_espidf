@@ -1,5 +1,6 @@
 .devcontainer
 .vscode
 build
+Backup/
 *.ci
 *.old

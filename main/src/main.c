@@ -12,6 +12,7 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 
+#include "lcd.h"
 #include "hardware_definitions.h"
 #include "driver_definitions.h"
 
@@ -71,8 +72,8 @@ void app_main(void)
 
     if (gpio_config(&LED) == ESP_OK) printf("DEU BOM\r\n");
 
-    //xTaskCreatePinnedToCore(&lcd_test, "lcd", 4096, NULL, 5, NULL, 0);
-    xTaskCreatePinnedToCore(&button_test, "button", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(&lcd_test, "lcd", 4096, NULL, 5, NULL, 0);
+    //xTaskCreatePinnedToCore(&button_test, "button", 4096, NULL, 5, NULL, 0);
     //xTaskCreatePinnedToCore(&potenciometer_test, "pot", 4096, NULL, 5, NULL, 0);
     //xTaskCreatePinnedToCore(&SOC_test, "soc", 4096, NULL, 5, NULL, 0);
     //xTaskCreatePinnedToCore(&espnow_test, "wifi", 4096, NULL, 5, NULL, 1);
@@ -87,8 +88,10 @@ void app_main(void)
 /* Core 0 */
 void lcd_test(void *arg)
 {
+    config_lcd();
     while (true)
     {
+        show_lcd();
         delay(1);
     }
 }
